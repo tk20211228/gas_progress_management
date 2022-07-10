@@ -1,0 +1,2 @@
+# gas_progress_management
+日報を作成するリポジトリ
