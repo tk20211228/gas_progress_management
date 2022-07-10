@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <base target="_top">
+    <?!= inputCss ?>
+
+  </head>
+  <body>
+
+    <div id="overlay">
+      <div class="cv-copy">
+        <h1>実行中…</h1>
+        <h3>※ダイヤログは閉じないで下さい。</h3>    
+      </div>
+      <div class="cv-spinner">
+        <span class="spinner"></span>
+      </div>
+    </div>
+
+    <div class="m-2" id="app">
+       <div class="container-fluid">
+        <div class="m-2 row">
+          <form autocomplete="off">
+          <div class="wrapper">
+            <div class="col-6 m-2">
+              <label for="report" class="form-label"></label>
+              <textarea class="form-control form-control-lg" id="report" name="report" :value='inputWord'></textarea>
+              <button id="send_button" type="button" class="btn btn-outline-primary btn-lg m-3" v-on:click="onOK(this.parentNode)"> Gmailの下書きに出力する</button>
+              <button type="button" class="btn btn-outline-success btn-lg m-3" v-on:click="copy()">テキストを全てコピーする</button>
+              <button type="button" class="btn btn-outline-secondary btn-lg m-3" onclick="google.script.host.close()">閉じる</button>
+            </div>
+            <div class="col-6 m-2">
+              <div class="m-2 row">
+                <?!= bodyItem['addBody'] ?>
+              </div>
+            </div>
+          </div>
+          </form>
+       </div>
+     </div>
+    </div>
+    <?!= inputJs ?>
+    <script>
+      const myApp = {
+          data() {
+              return {
+                  destination           : <?= bodyItem['destination'][0] ?>,//宛先
+                  subject               : <?= bodyItem['subject'][0] ?>,//件名
+                  familyName            : <?= bodyItem['familyName'][0] ?>,//担当者
+                  taskName              : <?= bodyItem['taskName'][0] ?>,//タスク名
+
+                  startDay              : <?= bodyItem['startDay'][0] ?>,//開始予定
+                  completeDay           : <?= bodyItem['completeDay'][0] ?>,//完了予定
+                  totalItems            : <?= bodyItem['totalItems'][0] ?>,//総項目数
+                  planTotalTime         : <?= bodyItem['planTotalTime'][0] ?>,//予定総工数
+                  totalUsingItem        : <?= bodyItem['totalUsingItem'][0] ?>,//総消化項目
+                  totalActualTime       : <?= bodyItem['totalActualTime'][0] ?>,//総実工数
+
+                  todayplanUsingItem    : <?= bodyItem['todayplanUsingItem'][0] ?>,//予定項目数(本日)
+                  todayPlanUsingTime    : <?= bodyItem['todayPlanUsingTime'][0] ?>,//予定工数(本日)
+                  todayActualItem       : <?= bodyItem['todayActualItem'][0] ?>,//消化項目(本日)
+                  todayActualTime       : <?= bodyItem['todayActualTime'][0] ?>,//実工数(本日)
+
+                  todayTotalPlanItem    : <?= bodyItem['todayTotalPlanItem'][0] ?>,//累積項目数 (計画)(本日)
+                  todayTotalActualItem  : <?= bodyItem['todayTotalActualItem'][0] ?>,//累積項目数 (実績)(本日)
+                  todayTotalPlanTime    : <?= bodyItem['todayTotalPlanTime'][0] ?>,//累積時間 (計画)(本日)
+                  todayTotalActualTime  : <?= bodyItem['todayTotalActualTime'][0] ?>,//累積時間 (実績)(本日)
+                  todayMemo             : <?= bodyItem['todayMemo'][0] ?>,//メモ(本日)
+
+                  tomorrowPlanUsingItem : <?= bodyItem['tomorrowPlanUsingItem'][0] ?>,//予定項目数(次日)
+                  tomorrowPlanUsingTime : <?= bodyItem['tomorrowPlanUsingTime'][0] ?>,//予定工数(次日)
+                  tomorrowActualItem    : <?= bodyItem['tomorrowActualItem'][0] ?>,//消化項目(次日)
+                  tomorrowActualTime    : <?= bodyItem['tomorrowActualTime'][0] ?>,//実工数(次日)
+
+                  tomorrowTotalPlanItem    : <?= bodyItem['tomorrowTotalPlanItem'][0] ?>,//累積項目数 (計画)(次日)
+                  tomorrowTotalActualItem  : <?= bodyItem['tomorrowTotalActualItem'][0] ?>,//累積項目数 (実績)(次日)
+                  tomorrowTotalPlanTime    : <?= bodyItem['tomorrowTotalPlanTime'][0] ?>,//累積時間 (計画)(次日)
+                  tomorrowTotalActualTime  : <?= bodyItem['tomorrowTotalActualTime'][0] ?>,//累積時間 (実績)(次日)
+                  tomorrowMemo             : <?= bodyItem['tomorrowMemo'][0] ?>,//メモ(次日)
+              }
+          },
+          computed: {
+              inputWord() {
+                var rateList = {
+                  todayPlanUsingItemProgress      : [this.todayTotalPlanItem,this.totalItems],//予定進捗率（本日）
+                  todayPlanUsingTimeProgress      : [this.todayTotalPlanTime,this.planTotalTime],//予定工数進捗（本日）
+
+                  todayActualItemProgress         : [this.todayTotalActualItem,this.totalItems],//進捗率（本日）
+                  todayActualTimeProgress         : [this.todayTotalActualTime,this.planTotalTime],//工数進捗（本日）
+
+                  tomorrowPlanUsingItemProgress   : [this.tomorrowTotalPlanItem,this.totalItems],//予定進捗率(計画)(次日)
+                  tomorrowActualItemProgress      : [this.tomorrowTotalActualItem,this.totalItems],//予定進捗率(実績)(次日)
+                  tomorrowPlanUsingTimeProgress   : [this.tomorrowTotalPlanTime,this.planTotalTime],//予定工数進捗(計画)(次日)
+                  tomorrowActualUsingTimeProgress : [this.tomorrowTotalActualTime,this.planTotalTime],//予定工数進捗(実績)(次日)
+                };
+
+                var progressRate = {};
+                for(key in rateList){
+                  progressRate[key] = Math.trunc( rateList[key][0] / rateList[key][1] * 100 );
+                };
+
+                if(this.tomorrowPlanUsingTime != 0){
+                  var tomorrowPlanBody = `
+・${this.taskName}
+　予定進捗率     ：${progressRate['tomorrowActualItemProgress']}%[${this.tomorrowTotalActualItem}/${this.totalItems}]／${progressRate['tomorrowPlanUsingItemProgress']}%[${this.tomorrowTotalPlanItem}/${this.totalItems}]
+　予定工数進捗   ：${progressRate['tomorrowActualUsingTimeProgress']}%[${this.tomorrowTotalActualTime}/${this.planTotalTime}h]／${progressRate['tomorrowPlanUsingTimeProgress']}%[${this.tomorrowTotalPlanTime}/${this.planTotalTime}h]
+　予定実施項目数 ：${this.tomorrowActualItem}項目[${this.tomorrowActualTime}h]／${this.tomorrowPlanUsingItem}項目[${this.tomorrowPlanUsingTime}h]
+　${this.tomorrowMemo}
+`;
+
+                }else{
+                  var tomorrowPlanBody = `
+・
+`;
+                };
+
+                const basic_bady = `
+お疲れ様です。
+${this.familyName}です
+本日の日報を送付致します。
+/-----------------------------------------------------------------/
+
+①プロジェクト名
+
+【MDM】
+
+/-----------------------------------------------------------------/
+
+②本日の作業計画・・・[目標進捗]
+
+・${this.taskName}
+　予定進捗率     ：${progressRate['todayPlanUsingItemProgress']}%[${this.todayTotalPlanItem}/${this.totalItems}]
+　予定工数進捗   ：${progressRate['todayPlanUsingTimeProgress']}%[${this.todayTotalPlanTime}/${this.planTotalTime}h]
+　予定実施項目数 ：${this.todayplanUsingItem}項目[${this.todayPlanUsingTime}h]
+
+/-----------------------------------------------------------------/
+
+③本日の作業実績  [実績進捗]/[目標進捗]
+
+・${this.taskName}
+　開始予定       ：${this.startDay}
+　完了予定       ：${this.completeDay}
+　進捗率         ：${progressRate['todayActualItemProgress']}%[${this.todayTotalActualItem}/${this.totalItems}]／${progressRate['todayPlanUsingItemProgress']}%[${this.todayTotalPlanItem}/${this.totalItems}]
+　工数進捗       ：${progressRate['todayActualTimeProgress']}%[${this.todayTotalActualTime}/${this.planTotalTime}h]／${progressRate['todayPlanUsingTimeProgress']}%[${this.todayTotalPlanTime}/${this.planTotalTime}h]
+　今日の実績     ：${this.todayActualItem}項目[${this.todayActualTime}h]／${this.todayplanUsingItem}項目[${this.todayPlanUsingTime}h]
+　総項目数       ：${this.totalItems}項目
+　${this.todayMemo}
+
+/-----------------------------------------------------------------/
+
+④明日の作業予定   [実績進捗]/[目標進捗]
+${tomorrowPlanBody}
+
+/-----------------------------------------------------------------/
+
+⑤問題点
+・なし
+
+/-----------------------------------------------------------------/
+
+⑥依頼事項
+・なし
+
+/-----------------------------------------------------------------/
+
+⑦連絡事項
+・なし
+
+/-----------------------------------------------------------------/
+
+以上です。
+よろしくお願い致します。
+
+`
+                  return basic_bady; 
+              }
+              //
+          },
+          methods: {
+            copy() {
+              const text = document.getElementsByTagName("textarea")[0];
+              text.select();
+              document.execCommand("copy");
+              },
+            onOK() {
+              $("#send_button").click(function(){
+              $("#overlay").fadeIn(500);
+              });
+              const body = this.inputWord;
+              const subject = this.subject;
+              const to      = this.destination;
+              google.script.run.withSuccessHandler(function(){
+                  google.script.host.close();
+              }).createGmail(to,subject,body);
+              }
+          },
+      }
+
+      Vue.createApp(myApp).mount('#app')
+  </script>
+
+    </div>
+  </body>
+  
+</html>
