@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+    <div>test</div>
+    <div>宛先：<?!= bodyItemJSON ?></div>
+    <div>件名：<?!= bodyItem ?></div>
+    <div>内容：<?!= inputsub ?></div>
+    <button type="button" class="btn btn-outline-secondary btn-lg m-3" onclick="google.script.run.withSuccessHandler(function(){
+                  google.script.host.close();
+              }).newCreateReportVer_1()">再実行</button>
+
+  </body>
+</html>
